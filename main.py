@@ -2,24 +2,26 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import random
 
-LIGHT_SQ = "#F0D9B5"    
-DARK_SQ  = "#B58863"
-QUEEN_BG = "#FFD166"
+LIGHT_SQ = "#F0D9B5"   
+DARK_SQ  = "#B58863"   
+QUEEN_BG = "#FFD166"   
 GRID_CLR = "#444444"
+BLOCK_COUNT = 5        
 
 class QueenGame:
     def __init__(self, root):
         self.root = root
-        self.root.title("Juego de Reina: un paso por movimiento (con bloqueo)")
+        self.root.title("Juego de Reina: un paso por movimiento (múltiples bloqueos)")
         self.n = None              
         self.square = None        
         self.canvas = None
         self.queen_pos = None     
-        self.blocked_pos = None   
+        self.blocked_positions = [] 
         self.move_count = 0
         self.ui_built = False
         self._build_ui()
         self.ask_board_size(initial=True)
+
 
     def _build_ui(self):
         top = tk.Frame(self.root, padx=8, pady=8)
@@ -31,10 +33,11 @@ class QueenGame:
         tk.Button(top, text="Cambiar tamaño", command=self.ask_board_size).pack(side=tk.LEFT, padx=(12, 0))
         tk.Button(top, text="Reiniciar", command=self.reset_game).pack(side=tk.LEFT, padx=6)
         tk.Button(top, text="Aleatorio reina", command=self.randomize_queen).pack(side=tk.LEFT, padx=6)
-        tk.Button(top, text="Nuevo bloqueo", command=self.randomize_block).pack(side=tk.LEFT, padx=6)
+        tk.Button(top, text="Nuevos bloqueos", command=self.randomize_blocks).pack(side=tk.LEFT, padx=6)
 
         self.moves_lbl = tk.Label(top, text="Movimientos: 0")
         self.moves_lbl.pack(side=tk.RIGHT)
+
         self.canvas_frame = tk.Frame(self.root, padx=8, pady=8)
         self.canvas_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -44,7 +47,6 @@ class QueenGame:
         max_square = 90
 
         self.square = max(min_square, min(max_square, max_canvas // self.n))
- 
         canvas_size = self.square * self.n + 1
 
         if self.canvas is not None:
@@ -61,7 +63,6 @@ class QueenGame:
 
 
     def ask_board_size(self, initial=False):
-
         while True:
             try:
                 n = simpledialog.askinteger(
@@ -86,7 +87,7 @@ class QueenGame:
 
     def new_game(self):
         self.queen_pos = (self.n // 2, self.n // 2)
-        self.randomize_block(avoid_current=True)
+        self.randomize_blocks(avoid_current=True)
         self.move_count = 0
         self.update_moves_label()
         self.draw_board()
@@ -99,35 +100,34 @@ class QueenGame:
     def randomize_queen(self):
         if self.n is None:
             return
-
         while True:
             pos = (random.randrange(self.n), random.randrange(self.n))
-            if pos != self.blocked_pos:
+            if pos not in self.blocked_positions:
                 self.queen_pos = pos
                 break
         self.move_count = 0
         self.update_moves_label()
         self.draw_board()
 
-    def randomize_block(self, avoid_current=False):
+    def randomize_blocks(self, avoid_current=False):
         if self.n is None:
             return
-
-        while True:
+        blocks = set()
+        while len(blocks) < BLOCK_COUNT:
             pos = (random.randrange(self.n), random.randrange(self.n))
             if pos != self.queen_pos:
-                self.blocked_pos = pos
-                break
+                blocks.add(pos)
+        self.blocked_positions = list(blocks)
         if not avoid_current:
             self.draw_board()
 
     def update_moves_label(self):
         self.moves_lbl.config(text=f"Movimientos: {self.move_count}")
 
-#DIBUJO -------------------------------------------------
+#DIBUJO ----------------------
+
     def draw_board(self):
         self.canvas.delete("all")
-
         canvas_w = int(self.canvas.cget("width"))
         canvas_h = int(self.canvas.cget("height"))
 
@@ -140,8 +140,7 @@ class QueenGame:
                 color = LIGHT_SQ if (r + c) % 2 == 0 else DARK_SQ
                 self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline=GRID_CLR)
 
-        if self.blocked_pos is not None:
-            br, bc = self.blocked_pos
+        for br, bc in self.blocked_positions:
             bx0, by0 = bc * self.square, br * self.square
             cx = bx0 + self.square // 2
             cy = by0 + self.square // 2
@@ -166,8 +165,6 @@ class QueenGame:
             self.canvas.create_text(cx, cy, text="Q", font=font_main)
 
         for (rr, cc) in self.legal_moves_from(self.queen_pos):
-            if (rr, cc) == self.blocked_pos:
-                continue
             hx0, hy0 = cc * self.square, rr * self.square
             hx1 = min(hx0 + self.square, canvas_w - 1)
             hy1 = min(hy0 + self.square, canvas_h - 1)
@@ -182,7 +179,7 @@ class QueenGame:
                     continue
                 rr, cc = r + dr, c + dc
                 if 0 <= rr < self.n and 0 <= cc < self.n:
-                    if (rr, cc) != self.blocked_pos:  # no se puede mover a la bloqueada
+                    if (rr, cc) not in self.blocked_positions:
                         moves.append((rr, cc))
         return moves
 
@@ -206,12 +203,10 @@ class QueenGame:
         else:
             pass
 
-
 def main():
     root = tk.Tk()
     app = QueenGame(root)
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()
